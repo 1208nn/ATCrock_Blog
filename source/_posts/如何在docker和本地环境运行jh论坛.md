@@ -5,41 +5,125 @@ tags: jhlt
 category: tech
 ---
 
-## docker&本地环境
+本文介绍如何在 Docker 和纯本地环境下运行 JH 论坛项目，包括环境配置、常见问题及解决方案。
 
-用`idea/vs`打开项目，先修改`application.yml`（那些账号密码什么的都换一下），然后在终端里面输入`docker compose up`（记得打开`docker`），然后等待项目挂起就行。挂起后，在本地运行论坛即可
+## 方式一：Docker + 本地环境（推荐）
 
-如果出现`failed to do request: Get…………error`，说明网络环境不稳定，可以多试几次
+### 快速启动步骤
 
-如果出现
-> ✘ sentinel-dashboard Error     unknown: failed to resolve reference "docker.io/bladex/sentinel-dashboard:1.8.8": unexpected status from HEAD re...                          10.4s
-> Error response from daemon: unknown: failed to resolve reference "docker.io/bladex/sentinel-dashboard:1.8.8": unexpected status from HEAD request to https://docker.m.daocloud.io/v2/bladex/sentinel-dashboard/manifests/1.8.8?ns=docker.io: 403 Forbidden
+1. **打开项目**：使用 `IntelliJ IDEA` 或 `Visual Studio Code` 打开项目
 
-这种情况，可能是镜像源或网络配置有问题。优先查看是否是镜像源配置问题，一般网络配置不会有那么大影响
+2. **修改配置文件**：编辑 `application.yml`，更新以下配置：
+   - 数据库账号密码
+   - Redis 密码（如果设置了）
+   - Nacos 配置信息
 
-如果出现`error from registry: 🚫-> https://github.com/DaoCloud/public-image-mirror/issues/2328 🔗 这镜像不在白名单. this image is not in the allowlist.`，解决方法和上述同样，检查镜像源是否可用。
+3. **启动 Docker 容器**：
+   ```bash
+   docker compose up
+   ```
+   > **注意**：启动前请确保 Docker Desktop 已运行
 
-## 纯本地环境
+4. **等待容器启动**：等待所有容器成功挂起
 
-### 前期准备
+5. **运行论坛**：在本地 IDE 中启动论坛应用
 
-#### 配置`nacos`
+### 常见问题排查
 
-`nacos`安装完后，需要把`conf/application.properties`里面的`mode`改成`standalone`，然后需要设置`nacos`账号密码(需要在项目的`application.yml`里面同步修改，否则会报错)
+#### 问题 1：网络请求失败
 
-`nacos`运行地址修改：在`conf/application.properties`中添加`nacos.inetutils.ip-address=127.0.0.1`(也可以是别的，但是本地运行就挂本地的就行)，需要在项目的`application.yml`里面同步修改这个地址
+**错误信息**：
+```
+failed to do request: Get…………error
+```
 
-#### 配置`redis`
+**原因**：网络环境不稳定
 
-`redis`安装后，可以选择不设置密码，并把项目的`application.yml`里面的`data:redis:password`注释掉；若设置密码，则在该处添加你的密码
+**解决方法**：多次重试 `docker compose up` 命令
 
-### 项目的`application.yml`修改
+#### 问题 2：镜像拉取失败（403 Forbidden）
 
-除了上述的`nacos`和`redis`配置的修改，还需要对其他内容进行配置
+**错误信息**：
+```
+✘ sentinel-dashboard Error     unknown: failed to resolve reference "docker.io/bladex/sentinel-dashboard:1.8.8": unexpected status from HEAD re...                          10.4s
+Error response from daemon: unknown: failed to resolve reference "docker.io/bladex/sentinel-dashboard:1.8.8": unexpected status from HEAD request to https://docker.m.daocloud.io/v2/bladex/sentinel-dashboard/manifests/1.8.8?ns=docker.io: 403 Forbidden
+```
 
-1.直接打开项目时，`application`的名字还是`application.example.yml`，需要去掉`example`
+**原因**：Docker 镜像源配置问题或镜像源不可用
 
-(该处原为`nacos:nacos-config-application-example.properties`，需要改掉文件名)
+**解决方法**：
+1. 检查 Docker 镜像源配置（优先排查）
+2. 更换可用的镜像源
+3. 确认网络连接正常
+
+#### 问题 3：镜像不在白名单
+
+**错误信息**：
+```
+error from registry: 🚫-> https://github.com/DaoCloud/public-image-mirror/issues/2328 🔗 这镜像不在白名单. this image is not in the allowlist.
+```
+
+**原因**：使用的镜像源对该镜像有访问限制
+
+**解决方法**：
+1. 检查并更换镜像源
+2. 使用官方 Docker Hub 或其他可用镜像源
+3. 联系运维人员配置镜像白名单
+
+---
+
+## 方式二：纯本地环境
+
+如果不使用 Docker，可以选择完全在本地环境运行论坛。这种方式需要手动配置所有依赖服务。
+
+### 第一步：前期准备
+
+#### 1. 配置 Nacos
+
+Nacos 是服务配置中心，需要正确配置才能使用。
+
+**操作步骤**：
+
+1. **设置单机模式**：
+   - 打开 `conf/application.properties` 文件
+   - 将 `mode` 修改为 `standalone`
+
+2. **配置账号密码**：
+   - 在 Nacos 中设置账号密码
+   - **重要**：同步修改项目 `application.yml` 中的 Nacos 账号密码，否则会导致连接失败
+
+3. **配置运行地址**：
+   - 在 `conf/application.properties` 中添加：
+     ```properties
+     nacos.inetutils.ip-address=127.0.0.1
+     ```
+   - **注意**：本地运行建议使用 `127.0.0.1`，也可以根据需要修改为其他地址
+   - **重要**：同步修改项目 `application.yml` 中的 Nacos 地址配置
+
+#### 2. 配置 Redis
+
+Redis 用于缓存和会话管理。
+
+**配置选项**：
+
+- **方案一（不设置密码）**：
+  - Redis 安装后不设置密码
+  - 在项目 `application.yml` 中注释掉 `spring.data.redis.password` 配置项
+
+- **方案二（设置密码）**：
+  - 为 Redis 设置密码
+  - 在项目 `application.yml` 的 `spring.data.redis.password` 中配置相应密码
+
+
+### 第二步：修改项目配置文件
+
+除了上述 Nacos 和 Redis 的配置，还需要对项目的 `application.yml` 进行以下修改：
+
+#### 1. 重命名配置文件
+
+首次打开项目时，配置文件名为 `application.example.yml`，需要：
+- 将文件名改为 `application.yml`
+- 修改配置文件中的导入路径：
 
 ```yml
 spring:
@@ -47,29 +131,124 @@ spring:
     import: "nacos:nacos-config-application.properties?refresh=true"
 ```
 
-2.源的`cube`和`user-center`配置是空的（在配置的最下面），需要相应配置请联系论坛开发人员
+> **说明**：原配置为 `nacos:nacos-config-application-example.properties`，需要删除文件名中的 `-example`
 
-3.由于**~~不知名~~原因**，需要把配置`dubbo`里面`protocol`的`tri`改成`dubbo`协议，这样`dubbo`才能正常连接
+#### 2. 配置 Cube 和 User-Center
+
+配置文件最下方的 `cube` 和 `user-center` 配置项默认为空，这些是论坛核心服务配置。
+
+**获取方式**：联系论坛开发人员获取相应的配置信息
+
+#### 3. 修改 Dubbo 协议
+
+由于已知兼容性问题，需要将 Dubbo 协议从 `tri` 改为 `dubbo`：
 
 ```yml
 dubbo:
   protocol:
-    name: tri->dubbo
+    name: dubbo  # 原值为 tri，需要修改为 dubbo
 ```
 
-### 启动前准备
+> **重要**：如果不修改此配置，Dubbo 服务将无法正常连接
 
-1. 由于论坛的`dubbo`配置口在`50052`，可以先在终端内查询这个端口是否被占用，若被占用则先关闭这个端口，然后再运行论坛，否则`dubbo`会因为端口被占用而无法正常启动
+### 第三步：启动前检查
 
-2. 启动前需要**先启动本地的`nacos`和`redis`**
+在启动论坛之前，需要完成以下检查和准备工作：
 
-- **`nacos`启动成功的标志**：`startup.sh`打开的命令行最后一句会有`Nacos started successfully in stand alone mode. use embedded storage`这一行
+#### 1. 检查端口占用
 
-- **`redis`启动成功的标志**：`redis.cli`打开后不会马上闪退，而是会显示`redis`配置中的`IP`地址（如`127.0.0.1>`）
+论坛的 Dubbo 服务使用 **50052** 端口，启动前需确保该端口未被占用。
 
-3. 这一行的最后，加了`&allowPublicKeyRetrieval=true`，源配置文件里面没有这一个，可以加上
+**检查方法**（Linux/Mac）：
+```bash
+lsof -i:50052
+```
 
-        datasource:
-          url: jdbc:mysql://your_ip/your_database?useSSL=false&autoReconnect=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+**检查方法**（Windows）：
+```cmd
+netstat -ano | findstr 50052
+```
 
-如果一切就绪，点击运行后等待加载，直至出现“帖子热度计算中”这一类字眼，并短期内不报错，则论坛成功运行
+**处理方式**：
+- 如果端口被占用，需要先关闭占用该端口的进程
+- 否则 Dubbo 将无法启动，导致服务间通信失败
+
+#### 2. 启动依赖服务
+
+**必须先启动以下服务**，否则论坛无法正常运行：
+
+##### 启动 Nacos
+
+**启动方式**：
+```bash
+# Linux/Mac
+sh startup.sh -m standalone
+
+# Windows
+startup.cmd -m standalone
+```
+
+**启动成功标志**：
+命令行最后一行显示：
+```
+Nacos started successfully in stand alone mode. use embedded storage
+```
+
+##### 启动 Redis
+
+**启动方式**：
+```bash
+# Linux/Mac
+redis-server
+
+# Windows
+redis-server.exe
+```
+
+**启动成功标志**：
+- 使用 `redis-cli` 连接后不会闪退
+- 显示配置的 IP 地址提示符，如 `127.0.0.1:6379>`
+
+#### 3. 数据库配置优化
+
+在数据源配置中，建议添加 `allowPublicKeyRetrieval=true` 参数以避免连接问题：
+
+```yml
+spring:
+  datasource:
+    url: jdbc:mysql://your_ip/your_database?useSSL=false&autoReconnect=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+```
+
+> **说明**：原配置文件中可能没有 `allowPublicKeyRetrieval=true` 参数，建议添加
+
+### 第四步：启动论坛
+
+确认以上所有配置和服务都已就绪后：
+
+1. 在 IDE 中点击运行按钮启动论坛应用
+2. 等待应用加载，观察控制台输出
+
+**启动成功标志**：
+- 控制台输出 "帖子热度计算中" 等业务相关日志
+- 短期内（1-2分钟）没有报错信息
+- 应用进入稳定运行状态
+
+---
+
+## 总结
+
+本文介绍了两种运行 JH 论坛的方式：
+
+1. **Docker + 本地环境**（推荐）：
+   - ✅ 配置简单，依赖服务自动化管理
+   - ✅ 环境隔离，不影响本地环境
+   - ❌ 需要 Docker 支持，占用一定资源
+
+2. **纯本地环境**：
+   - ✅ 完全控制所有服务
+   - ✅ 调试更加灵活
+   - ❌ 配置复杂，需要手动管理多个服务
+
+**建议**：开发调试时优先使用 Docker 方式，生产环境部署可根据实际情况选择。
+
+如遇到其他问题，请参考项目文档或联系开发团队获取支持。
